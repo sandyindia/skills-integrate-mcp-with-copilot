@@ -26,67 +26,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # TODO: replace with https://github.com/marketplace/actions/create-an-issue
-      - name: Create issues
-        uses: actions/github-script@v6
+      - name: Create bug issues
+        uses: ./.github/actions/create-issues
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const path = require('path');
+          dir: .github/steps/1-step-issues/bug/
+          label: bug
 
-            async function createIssuesFromMarkdownFiles(dir, label) {
-              // Get list of markdown files
-              const files = fs.readdirSync(dir);
-              console.log(`Creating ${files.length} issues with '${label}' label from '${dir}' folder.`);
-
-              // Create the issue
-              for (const file of files) {
-
-                // Load the file content
-                const fullPath = path.join(dir, file);
-                const fileContent = fs.readFileSync(fullPath, 'utf8');
-
-                // Split the file content into title, body, and comments
-                const title = fileContent.split('\n')[0].replace('#', '').trim();
-                const body = fileContent.split('\n').slice(1).join('\n').split('----- COMMENTS -----')[0].trim();
-                let comments = fileContent.split('----- COMMENTS -----').slice(1).join('\n').trim().split('\n')
-                comments = comments.filter(comment => comment.trim() !== '');
-
-                // Log the content
-                // console.log(`\n\Title: ${title}`);
-                // console.log(`Body:\n${body}`);
-                // for (const comment of comments) {
-                //   console.log(`Comment: '${comment.trim()}'`);
-                // }
-                // console.log(`\n`);
-
-                // Create the issue
-                const issue = await github.rest.issues.create({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  title: title,
-                  body: body,
-                  labels: [label],
-                });
-
-                // Add comments
-                for (const comment of comments) {
-                  await github.rest.issues.createComment({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: issue.data.number,
-                    body: comment,
-                  });
-                }
-
-                console.log(`Created issue: ${title}, URL: ${issue.data.html_url} with ${comments.length} comments.`);
-              }
-            };
-
-            // Load issues from both folders
-            await createIssuesFromMarkdownFiles('.github/steps/1-step-issues/bug/', 'bug');
-            await createIssuesFromMarkdownFiles('.github/steps/1-step-issues/enhancement/', 'enhancement');
+      - name: Create enhancement issues
+        uses: ./.github/actions/create-issues
+        with:
+          dir: .github/steps/1-step-issues/enhancement/
+          label: enhancement
 
   post_next_step_content:
     name: Post next step content
