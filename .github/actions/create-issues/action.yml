@@ -1,0 +1,65 @@
+name: Create issues from markdown files
+description: Create GitHub issues from markdown files in a directory
+inputs:
+  dir:
+    description: 'Directory containing markdown files'
+    required: true
+  label:
+    description: 'Label to apply to created issues'
+    required: true
+  github-token:
+    description: 'GitHub token for authentication'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+
+    - name: Create issues
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const dir = '${{ inputs.dir }}';
+          const label = '${{ inputs.label }}';
+
+          async function createIssuesFromMarkdownFiles(dir, label) {
+            const files = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+            console.log(`Creating ${files.length} issues with '${label}' label from '${dir}' folder.`);
+
+            for (const file of files) {
+              if (!file.endsWith('.md')) continue;
+
+              const fullPath = path.join(dir, file);
+              const fileContent = fs.readFileSync(fullPath, 'utf8');
+
+              const title = fileContent.split('\n')[0].replace('#', '').trim();
+              const body = fileContent.split('\n').slice(1).join('\n').split('----- COMMENTS -----')[0].trim();
+              let comments = fileContent.split('----- COMMENTS -----').slice(1).join('\n').trim().split('\n')
+              comments = comments.filter(comment => comment.trim() !== '');
+
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: [label],
+              });
+
+              for (const comment of comments) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.data.number,
+                  body: comment,
+                });
+              }
+
+              console.log(`Created issue: ${title}, URL: ${issue.data.html_url} with ${comments.length} comments.`);
+            }
+          };
+
+          await createIssuesFromMarkdownFiles(dir, label);
